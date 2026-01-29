@@ -55,9 +55,11 @@ describe('Talawa Admin Setup', () => {
       .mockImplementation(() => undefined);
   });
   it('should exit when logging prompt rejects', async () => {
+    const promptError = new Error('Prompt failure');
+
     vi.mocked(inquirer.prompt)
       .mockResolvedValueOnce({ shouldUseRecaptcha: false })
-      .mockRejectedValueOnce(new Error('Prompt failure'));
+      .mockRejectedValueOnce(promptError);
 
     const exitMock = vi
       .spyOn(process, 'exit')
@@ -70,23 +72,22 @@ describe('Talawa Admin Setup', () => {
 
     await expect(main()).rejects.toThrow('process.exit called with code 1');
 
-    expect(consoleSpy).toHaveBeenCalledWith(
-      '\n❌ Setup failed:',
-      new Error('Prompt failure'),
-    );
+    expect(consoleSpy).toHaveBeenCalledWith('\n❌ Setup failed:', promptError);
     expect(updateEnvFile).not.toHaveBeenCalledWith('ALLOW_LOGS', 'YES');
 
     consoleSpy.mockRestore();
     exitMock.mockRestore();
   });
   it('should exit when updateEnvFile throws during logging setup', async () => {
+    const envUpdateError = new Error('Env update failure');
+
     vi.mocked(inquirer.prompt)
       .mockResolvedValueOnce({ shouldUseRecaptcha: false })
       .mockResolvedValueOnce({ shouldLogErrors: true });
 
     vi.mocked(updateEnvFile).mockImplementation((key, value) => {
       if (key === 'ALLOW_LOGS' && value === 'YES') {
-        throw new Error('Env update failure');
+        throw envUpdateError;
       }
       return undefined;
     });
@@ -102,17 +103,14 @@ describe('Talawa Admin Setup', () => {
 
     await expect(main()).rejects.toThrow('process.exit called with code 1');
 
-    expect(consoleSpy).toHaveBeenCalledWith(
-      '\n❌ Setup failed:',
-      new Error('Env update failure'),
-    );
+    expect(consoleSpy).toHaveBeenCalledWith('\n❌ Setup failed:', envUpdateError);
 
     exitMock.mockRestore();
     consoleSpy.mockRestore();
   });
 
   afterEach(() => {
-    vi.resetAllMocks();
+    vi.clearAllMocks();
     processExitSpy.mockRestore();
     consoleErrorSpy.mockRestore();
   });
